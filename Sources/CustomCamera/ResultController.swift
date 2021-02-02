@@ -16,12 +16,13 @@ public class ResultController: UIViewController {
         return view
     }()
     
-    public weak var delegate: PhotoControllerDelegate?
+    private var completion: ((UIImage)->Void)?
     
-    public init(with image: UIImage) {
+    public init(with image: UIImage, completion: ((UIImage)->Void)?) {
         super.init(nibName: nil, bundle: nil)
         
         self.image = image
+        self.completion = completion
     }
     
     required init?(coder: NSCoder) {
@@ -48,6 +49,6 @@ public class ResultController: UIViewController {
     
     @objc
     private func onTapDone(_ sender: UIButton) {
-        delegate?.didSuccessPickImage(with: image)
+        completion?(image)
     }
 }

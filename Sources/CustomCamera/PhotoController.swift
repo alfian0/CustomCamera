@@ -8,10 +8,6 @@
 import UIKit
 import AVFoundation
 
-public protocol PhotoControllerDelegate: class {
-    func didSuccessPickImage(with image: UIImage)
-}
-
 public class PhotoController: UIViewController {
     private var captureSession : AVCaptureSession!
     
@@ -26,8 +22,6 @@ public class PhotoController: UIViewController {
     
     private var takePicture = false
     private var cameraType: CameraType = .other
-    
-    public weak var delegate: PhotoControllerDelegate?
     
     public enum CameraType {
         case selfie(frame: UIImage)
@@ -44,10 +38,13 @@ public class PhotoController: UIViewController {
         return view
     }()
     
-    public init(with type: CameraType) {
+    private var completion: ((UIImage)->Void)?
+    
+    public init(with type: CameraType, completion: ((UIImage)->Void)?) {
         super.init(nibName: nil, bundle: nil)
         
-        cameraType = type
+        self.cameraType = type
+        self.completion = completion
     }
     
     required init?(coder: NSCoder) {
@@ -250,8 +247,9 @@ extension PhotoController: AVCaptureVideoDataOutputSampleBufferDelegate {
                 }
                 DispatchQueue.main.async { [weak self] in
                     guard let `self` = self else { return }
-                    let viewController = ResultController(with: image)
-                    viewController.delegate = self.delegate
+                    let viewController = ResultController(with: image) { [weak self] image in
+                        self?.completion?(image)
+                    }
                     self.navigationController?.pushViewController(viewController, animated: true)
                     self.stopCaptureSession()
                 }
