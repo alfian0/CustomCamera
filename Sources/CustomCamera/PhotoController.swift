@@ -155,11 +155,11 @@ public class PhotoController: UIViewController {
         switch cameraType {
         case .selfie(let frame),
              .idCard(let frame):
+            let margin = 2*(25+8+view.safeAreaInsets.bottom)
             let image = UIImageView(image: frame)
             image.contentMode = .scaleAspectFit
-            previewLayer.insertSublayer(image.layer, above: previewLayer)
-            let margin = 2*(25+8+view.safeAreaInsets.bottom)
             image.frame = CGRect(x: 0, y: 0, width: view.layer.frame.width, height: view.layer.frame.height-margin)
+            view.insertSubview(image, belowSubview: captureView)
         default: break
         }
     }
