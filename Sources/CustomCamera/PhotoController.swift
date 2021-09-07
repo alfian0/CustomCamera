@@ -18,7 +18,7 @@ public class PhotoController: UIViewController {
     
     private var previewLayer : AVCaptureVideoPreviewLayer!
     
-    private var videoOutput : AVCaptureVideoDataOutput!
+    private var output: AVCapturePhotoOutput!
     
     private var takePicture = false
     private var cameraType: CameraType = .other
@@ -77,6 +77,9 @@ public class PhotoController: UIViewController {
     @objc
     private func onTapCapture() {
         takePicture = true
+        let setting = AVCapturePhotoSettings()
+        setting.flashMode = .auto
+        output.capturePhoto(with: setting, delegate: self)
     }
     
     private func setupAndStartCaptureSession(){
@@ -165,17 +168,10 @@ public class PhotoController: UIViewController {
     }
     
     private func setupOutput(){
-        videoOutput = AVCaptureVideoDataOutput()
-        let videoQueue = DispatchQueue(label: "videoQueue", qos: .userInteractive)
-        videoOutput.setSampleBufferDelegate(self, queue: videoQueue)
-        
-        if captureSession.canAddOutput(videoOutput) {
-            captureSession.addOutput(videoOutput)
-        } else {
-            fatalError("could not add video output")
+        output = AVCapturePhotoOutput()
+        if captureSession.canAddOutput(output) {
+            captureSession.addOutput(output)
         }
-        
-        videoOutput.connections.first?.videoOrientation = .portrait
     }
     
     private func switchCameraInput() {
@@ -184,14 +180,14 @@ public class PhotoController: UIViewController {
         case .selfie:
             captureSession.removeInput(frontInput)
             captureSession.addInput(backInput)
-            videoOutput.connections.first?.isVideoMirrored = true
+            output.connections.first?.isVideoMirrored = true
         default:
             captureSession.removeInput(backInput)
             captureSession.addInput(frontInput)
-            videoOutput.connections.first?.isVideoMirrored = false
+            output.connections.first?.isVideoMirrored = false
         }
 
-        videoOutput.connections.first?.videoOrientation = .portrait
+        output.connections.first?.videoOrientation = .portrait
 
         captureSession.commitConfiguration()
     }
@@ -227,32 +223,32 @@ public class PhotoController: UIViewController {
     }
 }
 
-extension PhotoController: AVCaptureVideoDataOutputSampleBufferDelegate {
-    public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        if takePicture {
-            takePicture = false
-            guard let cvBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-                return
+extension PhotoController: AVCapturePhotoCaptureDelegate {
+    public func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        guard let data = photo.fileDataRepresentation(),
+              let image = UIImage(data: data),
+              takePicture else {
+            return
+        }
+        takePicture = false
+        switch cameraType {
+        case .selfie:
+            DispatchQueue.main.async { [weak self] in
+                guard let `self` = self else { return }
+                let viewController = ResultController(with: image) { [weak self] image in
+                    self?.completion?(image)
+                }
+                self.navigationController?.pushViewController(viewController, animated: true)
+                self.stopCaptureSession()
             }
-            let context = CIContext()
-            let ciImage = CIImage(cvImageBuffer: cvBuffer)
-            let imageRect = CGRect(x: 0, y: 0, width: CVPixelBufferGetWidth(cvBuffer), height: CVPixelBufferGetHeight(cvBuffer))
-            if let cgImage = context.createCGImage(ciImage, from: imageRect) {
-                var image: UIImage
-                switch cameraType {
-                case .selfie:
-                    image = UIImage(cgImage: cgImage, scale: UIScreen.main.scale, orientation: .upMirrored)
-                default:
-                    image = UIImage(cgImage: cgImage, scale: UIScreen.main.scale, orientation: .up)
+        default:
+            DispatchQueue.main.async { [weak self] in
+                guard let `self` = self else { return }
+                let viewController = ResultController(with: image) { [weak self] image in
+                    self?.completion?(image)
                 }
-                DispatchQueue.main.async { [weak self] in
-                    guard let `self` = self else { return }
-                    let viewController = ResultController(with: image) { [weak self] image in
-                        self?.completion?(image)
-                    }
-                    self.navigationController?.pushViewController(viewController, animated: true)
-                    self.stopCaptureSession()
-                }
+                self.navigationController?.pushViewController(viewController, animated: true)
+                self.stopCaptureSession()
             }
         }
     }
