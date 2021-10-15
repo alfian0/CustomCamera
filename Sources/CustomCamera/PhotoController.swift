@@ -78,7 +78,12 @@ public class PhotoController: UIViewController {
     private func onTapCapture() {
         takePicture = true
         let setting = AVCapturePhotoSettings()
-        setting.flashMode = .auto
+        switch cameraType {
+        case .selfie:
+            setting.flashMode = frontCamera.hasFlash ? .auto : .off
+        default:
+            setting.flashMode = backCamera.hasFlash ? .auto : .off
+        }
         output.capturePhoto(with: setting, delegate: self)
     }
     
